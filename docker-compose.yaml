@@ -1,0 +1,32 @@
+version: "3.8"
+services:
+
+  ap-server-cool:
+    build: .
+    image: ap-server
+    environment:
+      - CONFIGFILE=config-cooldomain
+    ports:
+      - "8080:8080"
+    networks:
+      ap-network:
+        aliases:
+          - cooldomain.com
+      
+    
+
+  ap-server-anothercool:
+    depends_on:
+      - ap-server-cool
+    image: ap-server
+    environment:
+      - CONFIGFILE=config-anothercooldomain
+    ports:
+      - "8081:8080"
+    networks:
+      ap-network:
+        aliases:
+          - anothercooldomain.com
+
+networks:
+  ap-network:

@@ -34,6 +34,17 @@ type Activity struct {
 	Target string
 }
 
+func (a *Activity) MarshalJSON() ([]byte, error) {
+	type ActivityAlias Activity
+	return json.Marshal(&struct {
+		Context string `json:"@context"`
+		*ActivityAlias
+	}{
+		Context:       "https://www.w3.org/ns/activitystreams",
+		ActivityAlias: (*ActivityAlias)(a),
+	})
+}
+
 type Object struct {
 	Id           string
 	Type         string
@@ -46,4 +57,15 @@ type Object struct {
 	AttributedTo string
 	To           []string
 	Cc           []string
+}
+
+func (a *Object) MarshalJSON() ([]byte, error) {
+	type ObjectAlias Object
+	return json.Marshal(&struct {
+		Context string `json:"@context"`
+		*ObjectAlias
+	}{
+		Context:     "https://www.w3.org/ns/activitystreams",
+		ObjectAlias: (*ObjectAlias)(a),
+	})
 }

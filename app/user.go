@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"regexp"
 	"strings"
 )
 
@@ -78,4 +79,20 @@ func GetUser(username string) (model.Actor, int) {
 
 	log.Fatalf("User %s not found", id)
 	return model.Actor{}, http.StatusNotFound
+}
+
+func isLocal(id string) bool {
+	_, domain := parseId(id)
+	return domain == config.Domain
+}
+
+func parseId(id string) (string, string) {
+	pattern := regexp.MustCompile(`http://(?P<domain>[a-z]+\.[a-z]+):8080/users/(?P<username>[a-z]+)`)
+	matches := pattern.FindStringSubmatch(id)
+
+	username := matches[pattern.SubexpIndex("username")]
+	domain := matches[pattern.SubexpIndex("domain")]
+
+	return username, domain
+
 }

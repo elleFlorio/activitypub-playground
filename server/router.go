@@ -2,6 +2,7 @@ package server
 
 import (
 	"elleFlorio/activitypub-playground/app"
+	"elleFlorio/activitypub-playground/app/model"
 	"elleFlorio/activitypub-playground/config"
 	"net/http"
 
@@ -13,6 +14,8 @@ func StartServer() {
 	router.GET(app.WebFingerEndpoint, wellKnown)
 
 	router.POST("/users", createUser)
+	router.POST("/users/:username/outbox", postToOutbox)
+	router.POST("/users/:username/inbox", postToInbox)
 	router.GET("/search", searchUser)
 	router.GET("/users/:username", getUser)
 
@@ -52,4 +55,27 @@ func getUser(c *gin.Context) {
 	username := c.Param("username")
 	actor, status := app.GetUser(username)
 	c.IndentedJSON(status, actor)
+}
+
+func postToOutbox(c *gin.Context) {
+	username := c.Param("username")
+	var activity model.Activity
+
+	if err := c.BindJSON(&activity); err != nil {
+		return
+	}
+	id, status := app.AddToOutbox(username, activity)
+	c.Header("Location", id)
+	c.IndentedJSON(status, nil)
+}
+
+func postToInbox(c *gin.Context) {
+	username := c.Param("username")
+	var activity model.Activity
+
+	if err := c.BindJSON(&activity); err != nil {
+		return
+	}
+	status := app.AddToInbox(username, activity)
+	c.IndentedJSON(status, nil)
 }

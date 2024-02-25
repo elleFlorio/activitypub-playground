@@ -1,11 +1,13 @@
 package app
 
 import (
+	"bytes"
 	"elleFlorio/activitypub-playground/app/model"
 	"elleFlorio/activitypub-playground/app/storage"
 	"elleFlorio/activitypub-playground/config"
 	"fmt"
 	"log"
+	"net/http"
 
 	"github.com/google/uuid"
 )
@@ -26,42 +28,43 @@ func newActor(username string) model.Actor {
 	}
 }
 
-func newFollowActivity(username string, objectId string) (model.Activity, error) {
-	id, err := uuid.NewRandom()
-	if err != nil {
-		log.Fatal("Error generating Follow activity ID")
-		return model.Activity{}, err
-	}
-	actorId := getActorId(username)
+func AddToInbox(username string, activity model.Activity) int {
+	storage.AddToInbox(username, activity)
+	log.Default().Printf("Added to user %s inbox activity of type %s", username, activity.Type)
 
-	followActivity := model.Activity{
-		Id:     id.String(),
-		Type:   "Follow",
-		Actor:  actorId,
-		Object: objectId,
-	}
-
-	return followActivity, nil
+	return 201
 }
 
-func AddToOutbox(username string, activity model.Activity) {
+func AddToOutbox(username string, activity model.Activity) (string, int) {
 	id, _ := uuid.NewRandom()
 	activity.Id = id.String()
 	storage.AddToOutbox(username, activity)
+	processActivity(activity)
 
+	log.Default().Printf("Added to user %s outbox activity of type %s", username, activity.Type)
+
+	return activity.Id, 201
 }
 
 func processActivity(activity model.Activity) {
 	switch activity.Type {
 	case "Follow":
-
+		sendFollowActivity(activity)
 	}
 }
 
 func sendFollowActivity(activity model.Activity) {
 	isLocalUser := isLocal(activity.Object)
 	if isLocalUser {
-		log.Default().Println("Local user")
+		username, _ := parseId(activity.Object)
+		AddToInbox(username, activity)
 	}
 
+	toFollow, _ := getRemoteUser(activity.Object)
+
+	body, _ := activity.MarshalJSON()
+	_, err := http.Post(toFollow.Inbox, "application/ld+json; profile=\"https://www.w3.org/ns/activitystreams\"", bytes.NewBuffer(body))
+	if err != nil {
+		log.Fatalf("Error sending to inbox: %s", toFollow.Inbox)
+	}
 }

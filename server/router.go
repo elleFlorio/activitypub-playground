@@ -18,6 +18,9 @@ func StartServer() {
 	router.POST("/users/:username/inbox", postToInbox)
 	router.GET("/search", searchUser)
 	router.GET("/users/:username", getUser)
+	router.GET("/users/:username/followers/requests", getFollowRequests)
+	router.GET("/users/:username/followers", getFollowers)
+	router.GET("/users/:username/following", getFollowing)
 
 	port := config.Port
 	router.Run("0.0.0.0:" + port)
@@ -55,6 +58,24 @@ func getUser(c *gin.Context) {
 	username := c.Param("username")
 	actor, status := app.GetUser(username)
 	c.IndentedJSON(status, actor)
+}
+
+func getFollowRequests(c *gin.Context) {
+	username := c.Param("username")
+	followRequests, status := app.GetFollowRequests(username)
+	c.IndentedJSON(status, followRequests)
+}
+
+func getFollowers(c *gin.Context) {
+	username := c.Param("username")
+	followers, status := app.GetFollowers(username)
+	c.IndentedJSON(status, followers)
+}
+
+func getFollowing(c *gin.Context) {
+	username := c.Param("username")
+	following, status := app.GetFollowing(username)
+	c.IndentedJSON(status, following)
 }
 
 func postToOutbox(c *gin.Context) {

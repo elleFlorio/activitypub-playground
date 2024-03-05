@@ -4,7 +4,7 @@ import "elleFlorio/activitypub-playground/app/model"
 
 var activities = make(map[string]model.Activity, 100)
 
-func CreateActivity(activity model.Activity) {
+func AddActivity(activity model.Activity) {
 	activities[activity.Id] = activity
 }
 

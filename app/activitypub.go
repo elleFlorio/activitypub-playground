@@ -38,6 +38,7 @@ func AddToInbox(username string, activity model.Activity) int {
 func processInboxActivity(username string, activity model.Activity) int {
 	switch activity.Type {
 	case "Follow":
+		storage.AddFollowRequest(activity)
 		log.Default().Printf("User %s received follow request from %s", username, activity.Actor)
 
 		return http.StatusCreated
@@ -67,7 +68,7 @@ func AddToOutbox(username string, activity model.Activity) (string, int) {
 	id, _ := uuid.NewRandom()
 	activity.Id = id.String()
 	storage.AddToOutbox(username, activity)
-	storage.AddActivity(activity)
+	storage.AddFollowRequest(activity)
 	log.Default().Printf("Added to user %s outbox activity of type %s with id %s", username, activity.Type, activity.Id)
 
 	result := processOutboxActivity(activity)
@@ -82,17 +83,15 @@ func processOutboxActivity(activity model.Activity) int {
 		return resp
 	case "Accept":
 		username, _ := parseId(activity.Actor)
-		activities := storage.GetInbox(username)
-		for _, followActivity := range activities {
-			if followActivity.Id == activity.Object {
-				resp := sendToActor(followActivity.Actor, activity)
-				if resp == http.StatusAccepted {
-					log.Default().Printf("User %s Accepted follow request", activity.Actor)
-					storage.AddToFollowers(username, followActivity.Actor)
-				}
-
-				return resp
+		if followActivity, ok := storage.GetFollowRequest(activity.Object); ok {
+			resp := sendToActor(followActivity.Actor, activity)
+			if resp == http.StatusAccepted {
+				log.Default().Printf("User %s Accepted follow request", activity.Actor)
+				storage.AddToFollowers(username, followActivity.Actor)
+				storage.DeleteFollowRequest(followActivity.Id)
 			}
+
+			return resp
 		}
 
 		log.Default().Printf("Follow activity with id %s not found", activity.Object)

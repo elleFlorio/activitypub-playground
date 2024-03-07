@@ -98,15 +98,9 @@ func parseId(id string) (string, string) {
 }
 
 func GetFollowRequests(username string) ([]model.Activity, int) {
-	activities := storage.GetInbox(username)
 
-	followRequests := make([]model.Activity, 0, 100)
-	for _, activity := range activities {
-		if activity.Type == "Follow" {
-			followRequests = append(followRequests, activity)
-		}
-	}
-
+	actorId := getActorId(username)
+	followRequests := storage.GetFollowRequestsByActor(actorId)
 	return followRequests, 200
 }
 

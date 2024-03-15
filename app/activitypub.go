@@ -68,7 +68,6 @@ func AddToOutbox(username string, activity model.Activity) (string, int) {
 	id, _ := uuid.NewRandom()
 	activity.Id = id.String()
 	storage.AddToOutbox(username, activity)
-	storage.AddFollowRequest(activity)
 	log.Default().Printf("Added to user %s outbox activity of type %s with id %s", username, activity.Type, activity.Id)
 
 	result := processOutboxActivity(activity)
@@ -97,6 +96,8 @@ func processOutboxActivity(activity model.Activity) int {
 		log.Default().Printf("Follow activity with id %s not found", activity.Object)
 
 		return http.StatusNotFound
+	case "Create":
+
 	}
 
 	return http.StatusMethodNotAllowed

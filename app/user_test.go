@@ -8,7 +8,7 @@ import (
 func TestParseId(t *testing.T) {
 	const testUser string = "user"
 	const testDomain string = "domain.test"
-	testId := fmt.Sprintf("http://%s:8080/users/%s", testDomain, testUser)
+	testId := fmt.Sprintf("http://%s:8080/users/%s/something/somethingelse", testDomain, testUser)
 
 	username, domain := parseId(testId)
 

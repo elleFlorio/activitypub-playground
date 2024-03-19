@@ -5,6 +5,7 @@ import (
 	"elleFlorio/activitypub-playground/app/model"
 	"elleFlorio/activitypub-playground/app/storage"
 	"elleFlorio/activitypub-playground/config"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
@@ -14,6 +15,16 @@ import (
 
 func getActorId(username string) string {
 	return fmt.Sprintf("http://%s:8080/users/%s", config.Domain, username)
+}
+
+func getActivityId(username string) string {
+	id, _ := uuid.NewRandom()
+	return fmt.Sprintf("http://%s:8080/users/%s/activity/%s", config.Domain, username, id.String())
+}
+
+func getObjectId(username string) string {
+	id, _ := uuid.NewRandom()
+	return fmt.Sprintf("http://%s:8080/users/%s/object/%s", config.Domain, username, id.String())
 }
 
 func newActor(username string) model.Actor {
@@ -46,6 +57,9 @@ func processInboxActivity(username string, activity model.Activity) int {
 		log.Default().Printf("User %s accepted Follow request from %s", activity.Actor, username)
 
 		return addToFollowing(username, activity)
+	case "Create":
+		log.Default().Printf("Added object %s to user %s timeline", activity.Object, username)
+		storage.AddToTimeline(username, activity.Object)
 	}
 
 	return http.StatusMethodNotAllowed
@@ -64,9 +78,25 @@ func addToFollowing(username string, activity model.Activity) int {
 	return http.StatusNotFound
 }
 
-func AddToOutbox(username string, activity model.Activity) (string, int) {
-	id, _ := uuid.NewRandom()
-	activity.Id = id.String()
+func AddObjectToOutbox(username string, object model.Object) (string, int) {
+	object.Id = getObjectId(username)
+	processOutboxObject(object)
+
+	activity := wrapInCreate(username, object)
+	log.Default().Printf("Received for user %s object of type %s and wrapped in activity with id %s", username, object.Type, activity.Id)
+
+	return AddActivityToOutbox(username, activity)
+}
+
+func processOutboxObject(object model.Object) {
+	switch object.Type {
+	case "Note":
+		storage.AddObject(object)
+	}
+}
+
+func AddActivityToOutbox(username string, activity model.Activity) (string, int) {
+	activity.Id = getActivityId(username)
 	storage.AddToOutbox(username, activity)
 	log.Default().Printf("Added to user %s outbox activity of type %s with id %s", username, activity.Type, activity.Id)
 
@@ -97,7 +127,13 @@ func processOutboxActivity(activity model.Activity) int {
 
 		return http.StatusNotFound
 	case "Create":
-
+		// TODO simplification, we propagate only to followers
+		followersId := activity.To[0]
+		username, _ := parseId(followersId)
+		followers := storage.GetFollowers(username)
+		for _, follower := range followers {
+			sendToActor(follower, activity)
+		}
 	}
 
 	return http.StatusMethodNotAllowed
@@ -108,6 +144,7 @@ func sendToActor(actorId string, activity model.Activity) int {
 	if isLocalUser {
 		username, _ := parseId(actorId)
 		AddToInbox(username, activity)
+		return http.StatusOK
 	}
 
 	toFollow, _ := getRemoteUser(actorId)
@@ -119,4 +156,48 @@ func sendToActor(actorId string, activity model.Activity) int {
 	}
 
 	return resp.StatusCode
+}
+
+func wrapInCreate(username string, object model.Object) model.Activity {
+	activityId := getActivityId(username)
+	actorId := getActorId(username)
+
+	object.AttributedTo = actorId
+	createActivity := model.Activity{
+		Id:        activityId,
+		Type:      "Create",
+		Actor:     actorId,
+		Object:    object.Id,
+		Published: object.Published,
+		To:        object.To,
+		Cc:        object.Cc,
+	}
+
+	return createActivity
+}
+
+func GetObjectById(username string, id string) (model.Object, int) {
+	objectId := fmt.Sprintf("http://%s:8080/users/%s/object/%s", config.Domain, username, id)
+	if object, ok := storage.GetObject(objectId); ok {
+		return object, http.StatusOK
+	}
+	return model.Object{}, http.StatusNotFound
+}
+
+func GetRemoteObject(uri string) (model.Object, int) {
+	resp, err := http.Get(uri)
+	if err != nil {
+		log.Fatalf("Error Getting remote object %s", uri)
+	}
+
+	defer resp.Body.Close()
+
+	var remoteObject model.Object
+
+	if err := json.NewDecoder(resp.Body).Decode(&remoteObject); err != nil {
+		log.Fatal("Error decoding remote object response")
+		return model.Object{}, http.StatusInternalServerError
+	}
+
+	return remoteObject, http.StatusOK
 }

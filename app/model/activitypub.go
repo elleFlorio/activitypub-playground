@@ -27,11 +27,14 @@ func (a *Actor) MarshalJSON() ([]byte, error) {
 }
 
 type Activity struct {
-	Id     string
-	Type   string
-	Actor  string
-	Object string
-	Target string
+	Id        string
+	Type      string
+	Actor     string
+	Object    string
+	Target    string
+	To        []string
+	Cc        []string
+	Published time.Time
 }
 
 func (a *Activity) MarshalJSON() ([]byte, error) {

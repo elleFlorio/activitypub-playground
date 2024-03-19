@@ -87,7 +87,7 @@ func isLocal(id string) bool {
 }
 
 func parseId(id string) (string, string) {
-	pattern := regexp.MustCompile(`http://(?P<domain>[a-z]+\.[a-z]+):8080/users/(?P<username>[a-z]+)`)
+	pattern := regexp.MustCompile(`http://(?P<domain>[a-z]+\.[a-z]+):8080/users/(?P<username>[a-z]+)/*`)
 	matches := pattern.FindStringSubmatch(id)
 
 	username := matches[pattern.SubexpIndex("username")]
@@ -98,10 +98,9 @@ func parseId(id string) (string, string) {
 }
 
 func GetFollowRequests(username string) ([]model.Activity, int) {
-
 	actorId := getActorId(username)
 	followRequests := storage.GetFollowRequestsByActor(actorId)
-	return followRequests, 200
+	return followRequests, http.StatusOK
 }
 
 func GetFollowers(username string) ([]string, int) {
@@ -110,4 +109,34 @@ func GetFollowers(username string) ([]string, int) {
 
 func GetFollowing(username string) ([]string, int) {
 	return storage.GetFollowing(username), http.StatusOK
+}
+
+func GetPosts(username string) ([]model.Object, int) {
+	actorId := getActorId(username)
+	return storage.GetObjectsByActorIdAndType(actorId, "Note"), http.StatusOK
+}
+
+func GetTimeline(username string) ([]model.Object, int) {
+	timeline := make([]model.Object, 0, 100)
+	if noteIds, ok := storage.GetTimeline(username); ok {
+		for _, noteId := range noteIds {
+			if isLocal(noteId) {
+				if note, ok := storage.GetObject(noteId); ok {
+					timeline = append(timeline, note)
+				} else {
+					log.Default().Printf("WARNING: Cannot find Note object with id: %s\n", noteId)
+				}
+			} else {
+				note, status := GetRemoteObject(noteId)
+				if status != http.StatusOK {
+					log.Fatalf("Error getting remote Note object with id: %s\n", noteId)
+				}
+				timeline = append(timeline, note)
+			}
+		}
+
+		return timeline, http.StatusOK
+	}
+
+	return []model.Object{}, http.StatusNotFound
 }

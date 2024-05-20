@@ -80,6 +80,7 @@ func addToFollowing(username string, activity model.Activity) int {
 
 func AddObjectToOutbox(username string, object model.Object) (string, int) {
 	object.Id = getObjectId(username)
+	object.AttributedTo = getActorId(username)
 	processOutboxObject(object)
 
 	activity := wrapInCreate(username, object)
@@ -144,7 +145,7 @@ func sendToActor(actorId string, activity model.Activity) int {
 	if isLocalUser {
 		username, _ := parseId(actorId)
 		AddToInbox(username, activity)
-		return http.StatusOK
+		return http.StatusAccepted
 	}
 
 	toFollow, _ := getRemoteUser(actorId)
@@ -162,7 +163,6 @@ func wrapInCreate(username string, object model.Object) model.Activity {
 	activityId := getActivityId(username)
 	actorId := getActorId(username)
 
-	object.AttributedTo = actorId
 	createActivity := model.Activity{
 		Id:        activityId,
 		Type:      "Create",

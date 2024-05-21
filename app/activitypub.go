@@ -60,6 +60,8 @@ func processInboxActivity(username string, activity model.Activity) int {
 	case "Create":
 		log.Default().Printf("Added object %s to user %s timeline", activity.Object, username)
 		storage.AddToTimeline(username, activity.Object)
+
+		return http.StatusCreated
 	}
 
 	return http.StatusMethodNotAllowed
@@ -135,6 +137,8 @@ func processOutboxActivity(activity model.Activity) int {
 		for _, follower := range followers {
 			sendToActor(follower, activity)
 		}
+
+		return http.StatusCreated
 	}
 
 	return http.StatusMethodNotAllowed

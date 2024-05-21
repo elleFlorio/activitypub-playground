@@ -32,6 +32,3 @@
 
 # Go workspace file
 go.work
-
-# WIP
-scripts/
